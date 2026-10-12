@@ -50,7 +50,7 @@ KVM Dashboard puts every console in one window: a 2 × 2 grid by default, with f
 Clone the repo, then build:
 
 ```bash
-git clone TODO-repo-url KVM
+git clone https://github.com/dalehassinger/KVM.git
 cd KVM
 mac/build.sh
 ```
@@ -190,5 +190,6 @@ To change the icon, edit `mac/tools/make-icon.swift`, run `mac/tools/make-icon.s
 ## Credits
 
 - Built by [Dale Hassinger](https://www.vcrocs.info) with help from Claude Code.
+- Source: [github.com/dalehassinger/KVM](https://github.com/dalehassinger/KVM). Issues and suggestions welcome.
 - Hardware write-up: [Home Lab | GLiNET Comet KVM](https://www.vcrocs.info/home-lab-glinet-comet-kvm.html).
 - Not affiliated with GL.iNet or Broadcom/VMware. "VMware Clarity" refers only to the colour palette used for the theme.

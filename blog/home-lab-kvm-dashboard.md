@@ -125,6 +125,8 @@ My original ask was a static web page that runs anywhere. That didn't survive co
 
 #### Try It 🔗
 
+The source and full README are on GitHub: [https://github.com/dalehassinger/KVM](https://github.com/dalehassinger/KVM) 🔗
+
 You need macOS 14 or later and the Xcode Command Line Tools. Full Xcode is not required.
 
 1. Install the Command Line Tools if you don't have them:
@@ -136,7 +138,7 @@ xcode-select --install
 2. Clone the repo and build:
 
 ```bash
-git clone TODO-repo-url KVM
+git clone https://github.com/dalehassinger/KVM.git
 cd KVM
 mac/build.sh
 ```
@@ -157,7 +159,7 @@ The app is ad-hoc signed, not notarized. If you build it on your own Mac it open
 xattr -dr com.apple.quarantine "/Applications/KVM Dashboard.app"
 ```
 
-The full README in the repo covers troubleshooting, the JSON format, and how to change the icon.
+The full [README](https://github.com/dalehassinger/KVM#readme) covers troubleshooting, the JSON format, and how to change the icon.
 
 ---
 
