@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KVM Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='3' width='20' height='14' rx='2' fill='%2349afd9'/%3E%3Crect x='8' y='19' width='8' height='2' fill='%2349afd9'/%3E%3C/svg%3E">
+<style>
+/* ---------- Theme tokens (VMware Clarity / Aria Operations) ---------- */
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2;
+  --header: #002538;
+  --header-text: #ffffff;
+  --border: #cccccc;
+  --text: #313131;
+  --text-muted: #666666;
+  --primary: #0072a3;
+  --primary-hover: #004d8a;
+  --primary-text: #ffffff;
+  --danger: #c21d00;
+  --success: #3c8500;
+  --frame-bg: #000000;
+  --shadow: 0 1px 3px rgba(0,0,0,.2);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b2a32;
+    --surface: #21333b;
+    --surface-2: #17242b;
+    --header: #0f171c;
+    --header-text: #e9ecef;
+    --border: #485764;
+    --text: #e9ecef;
+    --text-muted: #adbbc4;
+    --primary: #49afd9;
+    --primary-hover: #89cbdf;
+    --primary-text: #0f171c;
+    --danger: #f54f47;
+    --success: #60b515;
+    --shadow: 0 1px 3px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b2a32;
+  --surface: #21333b;
+  --surface-2: #17242b;
+  --header: #0f171c;
+  --header-text: #e9ecef;
+  --border: #485764;
+  --text: #e9ecef;
+  --text-muted: #adbbc4;
+  --primary: #49afd9;
+  --primary-hover: #89cbdf;
+  --primary-text: #0f171c;
+  --danger: #f54f47;
+  --success: #60b515;
+  --shadow: 0 1px 3px rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 "Metropolis", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; }
+
+/* ---------- App header ---------- */
+.app-header {
+  height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: var(--header);
+  color: var(--header-text);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: .02em; }
+.brand svg { color: #49afd9; }
+.app-header .spacer { flex: 1; }
+.app-header.hidden { display: none; }
+
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 28px; min-width: 28px; padding: 0 6px;
+  border: 1px solid transparent; border-radius: 3px;
+  background: transparent; cursor: pointer; color: inherit;
+}
+.icon-btn:hover { background: rgba(127,127,127,.2); }
+.icon-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.icon-btn svg { width: 16px; height: 16px; flex: none; }
+.icon-btn .label { font-size: 13px; }
+
+.seg { display: inline-flex; border: 1px solid rgba(127,127,127,.5); border-radius: 3px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 3px 10px; cursor: pointer; font-size: 12px; color: inherit; }
+.seg button + button { border-left: 1px solid rgba(127,127,127,.5); }
+.seg button[aria-pressed="true"] { background: var(--primary); color: var(--primary-text); }
+
+/* ---------- Grid ---------- */
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 6px;
+  padding: 6px;
+}
+.grid.layout-2x2 { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr; }
+.grid.layout-1x4 { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; }
+.grid.layout-4x1 { grid-template-columns: 1fr; grid-auto-rows: 1fr; }
+.grid.layout-1 { grid-template-columns: 1fr; grid-auto-rows: 1fr; }
+.grid.layout-3 { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; }
+
+.panel {
+  min-width: 0; min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.panel-bar {
+  flex: none;
+  height: 32px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 4px 0 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.panel-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex: none; }
+.panel-bar .dot.ok { background: var(--success); }
+.panel-bar .name { font-weight: 600; white-space: nowrap; }
+.panel-bar .url {
+  color: var(--text-muted); font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1;
+}
+.panel-bar .actions { display: flex; gap: 2px; flex: none; }
+.panel-body { position: relative; flex: 1; min-height: 0; background: var(--frame-bg); }
+.panel-body iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--frame-bg); }
+.panel-body .empty {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--text-muted); text-align: center; padding: 16px;
+}
+
+/* Native fullscreen + in-window maximize */
+.panel:fullscreen { border: 0; border-radius: 0; }
+.panel:fullscreen .panel-bar { display: none; }
+.grid.has-max > .panel:not(.max) { display: none; }
+.grid.has-max { grid-template-columns: 1fr !important; grid-template-rows: 1fr !important; }
+
+/* Hover-reveal exit for fullscreen */
+.fs-exit {
+  position: absolute; top: 8px; right: 8px; z-index: 5;
+  display: none; opacity: 0; transition: opacity .2s;
+  background: rgba(15,23,28,.85); color: #e9ecef; border: 1px solid #485764;
+}
+.panel:fullscreen .fs-exit { display: inline-flex; }
+.panel:fullscreen .panel-body:hover .fs-exit,
+.fs-exit:focus-visible { opacity: 1; }
+
+/* ---------- Settings drawer ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; display: none; }
+.scrim.open { display: block; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 21;
+  width: min(460px, 100vw);
+  background: var(--surface); color: var(--text);
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 16px rgba(0,0,0,.3);
+  transform: translateX(100%); transition: transform .2s ease;
+  display: flex; flex-direction: column;
+}
+.drawer.open { transform: none; }
+.drawer header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.drawer h2 { margin: 0; font-size: 18px; font-weight: 400; }
+.drawer h3 { margin: 18px 0 8px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.drawer .content { flex: 1; overflow: auto; padding: 4px 16px 16px; }
+.drawer footer { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+
+.kvm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.kvm-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px 8px; align-items: center;
+  padding: 8px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface-2);
+}
+.kvm-item.dragging { opacity: .4; }
+.kvm-item.drop-target { outline: 2px dashed var(--primary); }
+.kvm-item .grip { cursor: grab; color: var(--text-muted); display: flex; align-self: stretch; align-items: center; }
+.kvm-item .fields { display: grid; grid-template-columns: 1fr; gap: 4px; min-width: 0; }
+.kvm-item .row-actions { display: flex; flex-direction: column; gap: 2px; }
+.kvm-item .row-actions > div { display: flex; gap: 2px; }
+.kvm-item label.toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+
+input[type="text"], input[type="url"] {
+  width: 100%; min-width: 0;
+  padding: 4px 6px; border: 0; border-bottom: 1px solid var(--border);
+  background: transparent; color: var(--text); font: inherit;
+}
+input[type="text"]:focus, input[type="url"]:focus { outline: none; border-bottom-color: var(--primary); }
+
+.btn {
+  height: 32px; padding: 0 14px; border-radius: 3px; cursor: pointer;
+  font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  border: 1px solid var(--primary); background: transparent; color: var(--primary);
+}
+.btn:hover { border-color: var(--primary-hover); color: var(--primary-hover); }
+.btn.primary { background: var(--primary); color: var(--primary-text); }
+.btn.primary:hover { background: var(--primary-hover); color: var(--primary-text); }
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+
+.radio-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.radio-row label {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 4px 10px; border: 1px solid var(--border); border-radius: 3px; font-size: 13px;
+}
+.radio-row input { accent-color: var(--primary); margin: 0; }
+.radio-row label:has(input:checked) { border-color: var(--primary); }
+.hint { color: var(--text-muted); font-size: 12px; margin: 6px 0 0; }
+
+@media (max-width: 760px) {
+  .grid.layout-2x2, .grid.layout-1x4, .grid.layout-3 { grid-template-columns: 1fr; grid-auto-rows: minmax(260px, 1fr); overflow: auto; }
+  .app-header .label { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="app-header" id="appHeader">
+  <div class="brand">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    <span id="appTitle">KVM Dashboard</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="seg" role="group" aria-label="Theme" id="themeSeg">
+    <button data-theme-btn="dark">Dark</button>
+    <button data-theme-btn="light">Light</button>
+    <button data-theme-btn="system">System</button>
+  </div>
+  <button class="icon-btn" id="reloadAll" title="Reload all">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span class="label">Reload all</span>
+  </button>
+  <button class="icon-btn" id="fullscreenAll" title="Full screen (whole dashboard)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="label">Full screen</span>
+  </button>
+  <button class="icon-btn" id="openSettings" title="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="label">Settings</span>
+  </button>
+</header>
+
+<main class="grid layout-2x2" id="grid"></main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Settings" aria-hidden="true">
+  <header>
+    <h2>Settings</h2>
+    <button class="icon-btn" id="closeSettings" title="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </header>
+  <div class="content">
+    <h3>KVM consoles</h3>
+    <ul class="kvm-list" id="kvmList"></ul>
+    <p class="hint">Drag the handle or use the arrows to change the order shown on the dashboard.</p>
+    <div style="margin-top:8px"><button class="btn" id="addKvm">+ Add KVM</button></div>
+
+    <h3>Layout</h3>
+    <div class="radio-row" id="layoutRow">
+      <label><input type="radio" name="layout" value="2x2"> 2 × 2</label>
+      <label><input type="radio" name="layout" value="1x4"> 1 row</label>
+      <label><input type="radio" name="layout" value="4x1"> 1 column</label>
+      <label><input type="radio" name="layout" value="auto"> Auto</label>
+    </div>
+
+    <h3>Theme</h3>
+    <div class="radio-row" id="themeRow">
+      <label><input type="radio" name="theme" value="dark"> Dark</label>
+      <label><input type="radio" name="theme" value="light"> Light</label>
+      <label><input type="radio" name="theme" value="system"> System</label>
+    </div>
+
+    <h3>Display</h3>
+    <div class="radio-row">
+      <label><input type="checkbox" id="optShowUrl"> Show URL in panel bar</label>
+      <label><input type="checkbox" id="optHideHeader"> Hide top bar (press <b>S</b> for settings)</label>
+    </div>
+
+    <h3>Backup</h3>
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <button class="btn" id="exportCfg">Export JSON</button>
+      <button class="btn" id="importCfg">Import JSON</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </div>
+    <p class="hint">Settings are stored in this browser. Export to move them to another machine, or edit <code>DEFAULT_CONFIG</code> in this file.</p>
+  </div>
+  <footer>
+    <button class="btn primary" id="applySettings">Apply</button>
+    <button class="btn" id="cancelSettings">Cancel</button>
+    <span style="flex:1"></span>
+    <button class="btn danger" id="resetCfg">Reset defaults</button>
+  </footer>
+</aside>
+
+<template id="panelTpl">
+  <section class="panel">
+    <div class="panel-bar">
+      <span class="dot"></span>
+      <span class="name"></span>
+      <span class="url"></span>
+      <div class="actions">
+        <button class="icon-btn" data-act="reload" title="Reload">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+        <button class="icon-btn" data-act="newtab" title="Open in new tab (use this to accept the certificate / log in)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+        </button>
+        <button class="icon-btn" data-act="max" title="Maximize in window">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="1"/></svg>
+        </button>
+        <button class="icon-btn" data-act="fs" title="Full screen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <button class="icon-btn fs-exit" data-act="fs" title="Exit full screen (Esc)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg><span class="label">Exit</span>
+      </button>
+    </div>
+  </section>
+</template>
+
+<script>
+/* ===== Edit these defaults if you want a different starting config ===== */
+const DEFAULT_CONFIG = {
+  title: "KVM Dashboard",
+  theme: "dark",          // dark | light | system
+  layout: "2x2",          // 2x2 | 1x4 | 4x1 | auto
+  showUrl: true,
+  hideHeader: false,
+  kvms: [
+    { id: "esx01", name: "ESX-01", url: "https://192.168.100.141/#/", enabled: true },
+    { id: "esx02", name: "ESX-02", url: "https://192.168.100.142/#/", enabled: true },
+    { id: "esx03", name: "ESX-03", url: "https://192.168.100.143/#/", enabled: true },
+    { id: "esx04", name: "ESX-04", url: "https://192.168.100.144/#/", enabled: true }
+  ]
+};
+/* ====================================================================== */
+
+const STORE_KEY = "kvm-wall-config-v1";
+const IFRAME_ALLOW = "fullscreen; autoplay; microphone; camera; clipboard-read; clipboard-write; display-capture; keyboard-map";
+
+const $ = (s, r = document) => r.querySelector(s);
+const clone = o => JSON.parse(JSON.stringify(o));
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) return { ...clone(DEFAULT_CONFIG), ...JSON.parse(raw) };
+  } catch (e) {}
+  return clone(DEFAULT_CONFIG);
+}
+function saveConfig() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(config)); } catch (e) {}
+}
+
+let config = loadConfig();
+let draft = null;                 // settings being edited
+const frames = new Map();         // kvm id -> panel element (kept alive across re-orders)
+
+/* ---------- Theme ---------- */
+function applyTheme(theme) {
+  if (theme === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", theme);
+  document.querySelectorAll("[data-theme-btn]").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.themeBtn === theme)));
+}
+document.querySelectorAll("[data-theme-btn]").forEach(b => b.addEventListener("click", () => {
+  config.theme = b.dataset.themeBtn; saveConfig(); applyTheme(config.theme);
+}));
+
+/* ---------- Grid rendering ---------- */
+function layoutClass(n) {
+  if (config.layout !== "auto") return "layout-" + config.layout;
+  if (n <= 1) return "layout-1";
+  if (n === 3 || n >= 5) return "layout-3";
+  return "layout-2x2";
+}
+
+function makePanel(kvm) {
+  const el = $("#panelTpl").content.firstElementChild.cloneNode(true);
+  el.dataset.id = kvm.id;
+  el.dataset.url = kvm.url;
+  const body = $(".panel-body", el);
+  if (kvm.url) {
+    const f = document.createElement("iframe");
+    f.src = kvm.url;
+    f.title = kvm.name;
+    f.allow = IFRAME_ALLOW;
+    f.allowFullscreen = true;
+    f.referrerPolicy = "no-referrer";
+    f.addEventListener("load", () => $(".dot", el).classList.add("ok"));
+    body.appendChild(f);
+  } else {
+    body.insertAdjacentHTML("beforeend", '<div class="empty">No URL set — open Settings.</div>');
+  }
+  el.addEventListener("click", e => {
+    const btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    const act = btn.dataset.act;
+    const iframe = $("iframe", el);
+    if (act === "reload" && iframe) { $(".dot", el).classList.remove("ok"); iframe.src = el.dataset.url; }
+    if (act === "newtab") window.open(el.dataset.url, "_blank", "noopener");
+    if (act === "fs") toggleFullscreen(el);
+    if (act === "max") toggleMax(el);
+  });
+  return el;
+}
+
+function render() {
+  const grid = $("#grid");
+  const active = config.kvms.filter(k => k.enabled);
+  grid.className = "grid " + layoutClass(active.length);
+  $("#appHeader").classList.toggle("hidden", !!config.hideHeader);
+  $("#appTitle").textContent = config.title || "KVM Dashboard";
+  document.title = config.title || "KVM Dashboard";
+
+  grid.querySelectorAll(":scope > :not([data-id])").forEach(n => n.remove());
+  if (!active.length) grid.querySelectorAll(".panel.max").forEach(p => p.classList.remove("max"));
+  grid.classList.toggle("has-max", !!grid.querySelector(".panel.max"));
+  // Drop panels for removed/disabled/changed-URL entries; reuse others so sessions don't reload.
+  for (const [id, el] of frames) {
+    const k = active.find(x => x.id === id);
+    if (!k || k.url !== el.dataset.url) { el.remove(); frames.delete(id); }
+  }
+  // Append in configured order. Moving an iframe in the DOM reloads it, so only move when order changed.
+  const currentOrder = [...grid.children].map(c => c.dataset.id).join(",");
+  const wantedOrder = active.map(k => k.id).join(",");
+  active.forEach(k => {
+    let el = frames.get(k.id);
+    if (!el) { el = makePanel(k); frames.set(k.id, el); }
+    $(".name", el).textContent = k.name;
+    $(".url", el).textContent = config.showUrl ? k.url : "";
+    const f = $("iframe", el); if (f) f.title = k.name;
+  });
+  if (currentOrder !== wantedOrder) active.forEach(k => grid.appendChild(frames.get(k.id)));
+
+  if (!active.length) grid.innerHTML = '<div class="panel"><div class="panel-body"><div class="empty">No KVMs enabled — open Settings.</div></div></div>';
+}
+
+/* ---------- Full screen / maximize ---------- */
+function toggleFullscreen(el) {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+}
+function toggleMax(el) {
+  const grid = $("#grid");
+  const on = !el.classList.contains("max");
+  grid.querySelectorAll(".panel.max").forEach(p => p.classList.remove("max"));
+  el.classList.toggle("max", on);
+  grid.classList.toggle("has-max", on);
+  $('[data-act="max"]', el).title = on ? "Restore grid" : "Maximize in window";
+}
+$("#fullscreenAll").addEventListener("click", () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen();
+});
+$("#reloadAll").addEventListener("click", () => {
+  frames.forEach(el => { const f = $("iframe", el); if (f) { $(".dot", el).classList.remove("ok"); f.src = el.dataset.url; } });
+});
+
+/* ---------- Settings drawer ---------- */
+function openSettings() {
+  draft = clone(config);
+  renderDraft();
+  $("#drawer").classList.add("open"); $("#scrim").classList.add("open");
+  $("#drawer").setAttribute("aria-hidden", "false");
+}
+function closeSettings() {
+  $("#drawer").classList.remove("open"); $("#scrim").classList.remove("open");
+  $("#drawer").setAttribute("aria-hidden", "true");
+  draft = null;
+}
+
+const ICON = {
+  grip: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>',
+  del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>'
+};
+
+function renderDraft() {
+  const list = $("#kvmList");
+  list.innerHTML = "";
+  draft.kvms.forEach((k, i) => {
+    const li = document.createElement("li");
+    li.className = "kvm-item";
+    li.draggable = true;
+    li.dataset.index = i;
+    li.innerHTML = `
+      <span class="grip" title="Drag to reorder">${ICON.grip}</span>
+      <div class="fields">
+        <input type="text" data-f="name" placeholder="Name" aria-label="Name">
+        <input type="url" data-f="url" placeholder="https://192.168.x.x/" aria-label="URL">
+        <label class="toggle"><input type="checkbox" data-f="enabled"> Show on dashboard</label>
+      </div>
+      <div class="row-actions">
+        <div>
+          <button class="icon-btn" data-move="-1" title="Move up" ${i === 0 ? "disabled" : ""}>${ICON.up}</button>
+          <button class="icon-btn" data-move="1" title="Move down" ${i === draft.kvms.length - 1 ? "disabled" : ""}>${ICON.down}</button>
+        </div>
+        <button class="icon-btn" data-del title="Remove">${ICON.del}</button>
+      </div>`;
+    $('[data-f="name"]', li).value = k.name;
+    $('[data-f="url"]', li).value = k.url;
+    $('[data-f="enabled"]', li).checked = k.enabled;
+    li.addEventListener("input", e => {
+      const f = e.target.dataset.f; if (!f) return;
+      k[f] = e.target.type === "checkbox" ? e.target.checked : e.target.value.trim();
+    });
+    li.addEventListener("click", e => {
+      const mv = e.target.closest("[data-move]");
+      if (mv) { move(i, i + Number(mv.dataset.move)); return; }
+      if (e.target.closest("[data-del]")) { draft.kvms.splice(i, 1); renderDraft(); }
+    });
+    // Only allow dragging from the grip so text fields stay selectable.
+    li.addEventListener("mousedown", e => { li.draggable = !!e.target.closest(".grip"); });
+    li.addEventListener("dragstart", e => { li.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); });
+    li.addEventListener("dragend", () => { li.classList.remove("dragging"); list.querySelectorAll(".drop-target").forEach(x => x.classList.remove("drop-target")); });
+    li.addEventListener("dragover", e => { e.preventDefault(); li.classList.add("drop-target"); });
+    li.addEventListener("dragleave", () => li.classList.remove("drop-target"));
+    li.addEventListener("drop", e => { e.preventDefault(); move(Number(e.dataTransfer.getData("text/plain")), i); });
+    list.appendChild(li);
+  });
+  document.querySelectorAll('#layoutRow input').forEach(r => r.checked = r.value === draft.layout);
+  document.querySelectorAll('#themeRow input').forEach(r => r.checked = r.value === draft.theme);
+  $("#optShowUrl").checked = !!draft.showUrl;
+  $("#optHideHeader").checked = !!draft.hideHeader;
+}
+function move(from, to) {
+  if (to < 0 || to >= draft.kvms.length || from === to) return;
+  const [item] = draft.kvms.splice(from, 1);
+  draft.kvms.splice(to, 0, item);
+  renderDraft();
+}
+
+$("#layoutRow").addEventListener("change", e => { draft.layout = e.target.value; });
+$("#themeRow").addEventListener("change", e => { draft.theme = e.target.value; applyTheme(draft.theme); });
+$("#optShowUrl").addEventListener("change", e => { draft.showUrl = e.target.checked; });
+$("#optHideHeader").addEventListener("change", e => { draft.hideHeader = e.target.checked; });
+$("#addKvm").addEventListener("click", () => {
+  draft.kvms.push({ id: uid(), name: "KVM-" + (draft.kvms.length + 1), url: "https://", enabled: true });
+  renderDraft();
+  const inputs = $("#kvmList").querySelectorAll('[data-f="url"]'); inputs[inputs.length - 1].focus();
+});
+$("#applySettings").addEventListener("click", () => {
+  config = draft; saveConfig(); applyTheme(config.theme); closeSettings(); render();
+});
+$("#cancelSettings").addEventListener("click", () => { applyTheme(config.theme); closeSettings(); });
+$("#closeSettings").addEventListener("click", () => { applyTheme(config.theme); closeSettings(); });
+$("#scrim").addEventListener("click", () => { applyTheme(config.theme); closeSettings(); });
+$("#openSettings").addEventListener("click", openSettings);
+$("#resetCfg").addEventListener("click", () => {
+  if (!confirm("Reset all settings to the defaults in this file?")) return;
+  draft = clone(DEFAULT_CONFIG); renderDraft(); applyTheme(draft.theme);
+});
+$("#exportCfg").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(draft || config, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "kvm-dashboard-config.json"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("#importCfg").addEventListener("click", () => $("#importFile").click());
+$("#importFile").addEventListener("change", async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.kvms)) throw new Error("missing kvms[]");
+    data.kvms.forEach(k => { k.id = k.id || uid(); k.enabled = k.enabled !== false; });
+    draft = { ...clone(DEFAULT_CONFIG), ...data };
+    renderDraft(); applyTheme(draft.theme);
+  } catch (err) { alert("Could not import: " + err.message); }
+  e.target.value = "";
+});
+
+/* ---------- Keyboard (only fires when focus is on the dashboard, not inside a KVM) ---------- */
+document.addEventListener("keydown", e => {
+  if (e.target.closest("input, textarea")) return;
+  if (e.key === "Escape" && $("#drawer").classList.contains("open")) { applyTheme(config.theme); closeSettings(); }
+  if (e.key.toLowerCase() === "s" && !$("#drawer").classList.contains("open")) openSettings();
+  if (e.key === "Escape" && $("#grid").classList.contains("has-max")) toggleMax($("#grid .panel.max"));
+});
+
+applyTheme(config.theme);
+render();
+</script>
+</body>
+</html>
