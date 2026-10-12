@@ -75,6 +75,12 @@ Every pane has four icons. Hovering one highlights it and shows its name in the 
 | ▢ | Maximize in the window. Click again to go back to the grid |
 | ⤢ | Full screen. Hover the top-right corner for **Exit Full Screen**, or press ⌃⌘F |
 
+#### Keyboard Shortcuts ⌨️
+
+Each pane header shows its tile number. **⌘1** fills the window with tile 1, **⌘2** with tile 2, and so on. Press the same shortcut again, or **⌘0**, to go back to the grid. In full screen, **⌘1**–**⌘4** switch between hosts without leaving full screen.
+
+The KVM console normally gets every key you type, so it can pass them to the host. The app catches **⌘0**–**⌘9** first, so the shortcuts work even while you are typing into a DCUI.
+
 #### Full Screen (GIF):
 
 ![Image](images/TODO-KVM-Dashboard-FullScreen.gif)
@@ -116,7 +122,7 @@ Re-ordering or changing the layout does not reload a console. Your sessions stay
 - ✅ VMware Operations dark theme, plus Light and System
 - ✅ Hover highlights and labels on the pane icons
 - ✅ Custom app icon with a keyboard and mouse
-- ⏳ ⌘1–⌘4 to jump a console to full screen
+- ✅ ⌘1–⌘9 to fill the window with a console, ⌘0 back to the grid
 - ⏳ A signed, notarized download so you don't need to build it
 
 My original ask was a static web page that runs anywhere. That didn't survive contact with the KVM login, but the native app does everything else I wanted.

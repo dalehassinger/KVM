@@ -25,6 +25,7 @@ KVM Dashboard puts every console in one window: a 2 × 2 grid by default, with f
 
 - **All your KVM consoles in one window.** Layouts: 2 × 2, 1 row, 1 column, or Auto.
 - **Per-pane controls.** Reload, open in browser, maximize in window, and full screen.
+- **Keyboard shortcuts.** ⌘1–⌘9 fill the window with that tile, ⌘0 returns to the grid.
 - **Settings (⌘,).** Add, remove, rename, re-point, show or hide, and re-order consoles by dragging or with arrows.
 - **Sessions survive changes.** Re-ordering or switching layouts does not reload a console or log you out.
 - **Logins persist.** Log in to each KVM once; the session is kept between launches.
@@ -101,11 +102,15 @@ The dot next to the name shows status: green = loaded, grey = loading, red = err
 
 | Shortcut | Action |
 | --- | --- |
+| ⌘1 – ⌘9 | Fill the window with tile 1–9. Press again to go back to the grid. In full screen, switches which console is shown |
+| ⌘0 | Back to the grid (also exits full screen) |
 | ⌘, | Settings |
 | ⇧⌘R | Reload all consoles |
 | ⌃⌘F | Exit full screen |
 
-Keystrokes typed while a console has focus go to that KVM, so click a pane before typing into it.
+Each pane header shows its tile number (⌘1, ⌘2, …). Tiles are numbered in the order set in Settings.
+
+Keystrokes typed while a console has focus go to that KVM, so click a pane before typing into it. The ⌘0–⌘9 shortcuts are the exception: the app catches them first, so they work even while a console has focus.
 
 ### Settings
 

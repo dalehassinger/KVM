@@ -102,6 +102,20 @@ final class Store: ObservableObject {
                 self.maximized = nil
             }
         }
+
+        // ⌘1–⌘9 fill the window with that tile, ⌘0 returns to the grid. A local monitor sees the key
+        // before the focused KVM console does, so the shortcuts work even while typing into a host.
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  let chars = event.charactersIgnoringModifiers, chars.count == 1,
+                  let digit = Int(chars) else { return event }
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard let self else { return false }
+                if digit == 0 { self.showGrid() } else { self.showTile(digit) }
+                return true
+            }
+            return handled ? nil : event
+        }
     }
 
     var config: Config {
@@ -142,6 +156,34 @@ final class Store: ObservableObject {
 
     func toggleMaximize(_ id: UUID) {
         maximized = maximized == id ? nil : id
+    }
+
+    /// Tile number (1-based) of a KVM in the order shown on the dashboard.
+    func tileNumber(of id: UUID) -> Int? {
+        kvms.filter(\.enabled).firstIndex { $0.id == id }.map { $0 + 1 }
+    }
+
+    /// ⌘N: fill the window with tile N; pressing it again returns to the grid.
+    /// In full screen it switches which console is shown and stays full screen.
+    func showTile(_ number: Int) {
+        let active = kvms.filter(\.enabled)
+        guard active.indices.contains(number - 1) else { NSSound.beep(); return }
+        let id = active[number - 1].id
+        if fullScreenPane != nil {
+            fullScreenPane = id
+            maximized = id
+        } else {
+            toggleMaximize(id)
+        }
+    }
+
+    /// ⌘0: back to the grid (leaves full screen if a console is full screen).
+    func showGrid() {
+        if fullScreenPane != nil, let window = NSApp.windows.first(where: { $0.styleMask.contains(.fullScreen) }) {
+            window.toggleFullScreen(nil) // observer restores the grid
+        } else {
+            maximized = nil
+        }
     }
 
     func toggleFullScreen(_ id: UUID) {
@@ -366,6 +408,14 @@ struct PaneView: View {
                 .fill(web.errorText != nil ? Clarity.danger : web.loaded ? Clarity.success : Clarity.muted)
                 .frame(width: 8, height: 8)
             Text(kvm.name).fontWeight(.semibold).foregroundStyle(Clarity.text)
+            if let n = store.tileNumber(of: kvm.id), n <= 9 {
+                Text("⌘\(n)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(Clarity.muted)
+                    .padding(.horizontal, 4)
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(Clarity.border, lineWidth: 1))
+                    .help("Press ⌘\(n) to fill the window with \(kvm.name). ⌘0 returns to the grid.")
+            }
             if store.showURL {
                 Text(kvm.url).font(.caption).foregroundStyle(Clarity.muted).lineLimit(1).truncationMode(.middle)
             }
@@ -598,6 +648,12 @@ struct KVMDashboardApp: App {
         .commands {
             CommandGroup(after: .toolbar) {
                 Button("Reload All KVMs") { store.reloadAll() }.keyboardShortcut("r", modifiers: [.command, .shift])
+                Divider()
+                Button("Show All Tiles") { store.showGrid() }.keyboardShortcut("0", modifiers: .command)
+                ForEach(Array(store.kvms.filter(\.enabled).prefix(9).enumerated()), id: \.element.id) { index, kvm in
+                    Button("Fill Window with \(kvm.name)") { store.showTile(index + 1) }
+                        .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+                }
             }
         }
 
